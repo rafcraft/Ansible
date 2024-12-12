@@ -1,0 +1,322 @@
+- name: Konfiguracja serwera za pomocą Ansible
+  hosts: virtualmachines
+  become: yes
+  vars:
+    ssh_keys:
+      - 'ssh-key'
+
+  tasks:
+    - name: Pobierz klucz nginx
+      shell: |
+        wget -qO - https://cs.nginx.com/static/keys/nginx_signing.key |
+        gpg --dearmor |
+        sudo tee /usr/share/keyrings/nginx-archive-keyring.gpg
+
+    - name: Dodaj repozytorium Nginx
+      apt_repository:
+        repo: "deb http://nginx.org/packages/mainline/ubuntu {{ ansible_distribution_release }} nginx"
+        state: present
+        update_cache: yes
+
+    - name: Dodaj repozytorium Ubuntu
+      apt_repository:
+        repo: "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} main"
+        state: present
+        update_cache: yes
+
+    - name: Pobierz klucz Zabbix
+      shell: |
+        wget -qO - https://repo.zabbix.com/zabbix-official-repo.key |
+        gpg --dearmor |
+        sudo tee /usr/share/keyrings/Zabbix-archive-keyring.gpg
+
+    - name: Dodaj repozytorium Zabbix
+      apt_repository:
+        repo: "deb http://repo.zabbix.com/zabbix/6.5/ubuntu {{ ansible_distribution_release }} main"
+        state: present
+        update_cache: yes
+
+    - name: Pobierz klucz PHP
+      shell: |
+        wget -qO - http://ppa.launchpad.net/ondrej/php/ubuntu/dists/jammy/Release.gpg |
+        gpg --dearmor |
+        sudo tee /usr/share/keyrings/PHP-archive-keyring.gpg
+
+    - name: Dodaj repozytorium PHP
+      apt_repository:
+        repo: "deb http://ppa.launchpad.net/ondrej/php/ubuntu {{ ansible_distribution_release }} main"
+        state: present
+        update_cache: yes
+
+    - name: Pobierz klucz PostgreSQL
+      shell: |
+        wget -qO - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc |
+        gpg --dearmor |
+        sudo tee /usr/share/keyrings/PostgreSQL-archive-keyring.gpg
+
+    - name: Dodaj repozytorium PostgreSQL
+      apt_repository:
+        repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+        state: present
+        update_cache: yes
+
+    - name: Pobierz klucz BorgBackup
+      shell: |
+        wget -qO - http://ppa.launchpad.net/costamagnagianfranco/borgbackup/ubuntu/dists/jammy/Release.gpg |
+        gpg --dearmor |
+        sudo tee /usr/share/keyrings/BorgBackup-archive-keyring.gpg
+    
+    - name: Dodaj repozytorium BorgBackup
+      apt_repository:
+        repo: "deb http://ppa.launchpad.net/costamagnagianfranco/borgbackup/ubuntu {{ ansible_distribution_release }} main"
+        state: present
+        update_cache: yes
+
+    #- name: Pobierz klucz Puppet
+    #  shell: |
+    #    wget -qO - http://apt.puppetlabs.com/pubkey.gpg |
+    #    gpg --dearmor |
+    #    sudo tee /usr/share/keyrings/Puppet-archive-keyring.gpg
+
+    #- name: Dodaj repozytorium Puppet
+    #  apt_repository:
+    #    repo: "deb http://apt.puppetlabs.com {{ ansible_distribution_release }} puppet6"
+    #    state: present
+    #    update_cache: yes
+
+    - name: Konfiguracja cron dla apt-get update
+      cron:
+        name: apt
+        job: "/usr/bin/apt-get update"
+        user: root
+        hour: "2"
+        minute: "{{ 59 | random(seed=inventory_hostname) }}"
+    
+    - name: Aktualizacja listy pakietów
+      apt:
+        update_cache: yes
+
+    - name: Instalacja kluczy publicznych
+      authorized_key:
+        user: root
+        key: "{{ item }}"
+      with_items: "{{ ssh_keys }}"
+
+
+    - name: Dodanie użytkownika pawelOg
+      user:
+        name: pawelOg
+        comment: Pawel Og
+        uid: 10001
+        gid: pawelOg
+        groups: www-data,sudo
+        home: /home/pawelOg
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Dodanie użytkownika pawel
+      user:
+        name: pawelMi
+        comment: Pawel Mikolik
+        uid: 10002
+        gid: pawelMi
+        groups: www-data,sudo
+        home: /home/pawelMi
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Instalacja pakietów systemowych
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - nginx
+        - python3-certbot-nginx
+        - php7.4-cgi
+        - php7.4-fpm
+        - php7.4-gd
+        - php7.4-curl
+        - php7.4-soap
+        - php7.4-imagick
+        - php7.4-xmlrpc
+        - php7.4-sqlite3
+        - php7.4-imap
+        - php7.4-cli
+        - php7.4-xml
+        - php7.4-mbstring
+        - php7.4-zip
+        - php7.4-ldap
+        - php7.4-intl
+        - php7.4-bcmath
+        - postgresql-server-dev-15
+        - postgresql-15-icu-ext
+        - postgresql-contrib-15
+        - borgbackup2
+
+    - name: Konfiguracja sysctl.conf
+      lineinfile:
+        path: /etc/sysctl.conf
+        line: "vm.swappiness = 0"
+        state: present
+
+    - name: Wywołanie sysctl
+      command: sysctl -p
+
+    - name: Instalacja paczki PHP OCI8
+      apt:
+        name: oci8-2.2.0
+        state: present
+
+    - name: Instalacja dodatkowych pakietów
+      apt:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - mercurial
+        - git
+        - nfs-common
+        - certbot
+        - php-dev
+        - php-pear
+        - build-essential
+        - libaio1
+        - systemtap-sdt-dev
+
+    - name: Pobranie i rozpakowanie Oracle Instant Client
+      unarchive:
+        src: /path/to/instantclient-basic-linux.x64-12.1.0.2.0.zip
+        dest: /opt/oracle
+        copy: no
+
+    - name: Dodanie rozszerzenia oci8 do php.ini (FPM)
+      lineinfile:
+        path: /etc/php/7.4/fpm/php.ini
+        line: "extension = oci8.so"
+        state: present
+
+    - name: Dodanie rozszerzenia oci8 do php.ini (CLI)
+      lineinfile:
+        path: /etc/php/7.4/cli/php.ini
+        line: "extension = oci8.so"
+        state: present
+
+    - name: Utworzenie linków symbolicznych dla Oracle Instant Client
+      file:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        state: link
+      with_items:
+        - { src: "/opt/oracle/instantclient_12_1/libclntsh.so.12.1", dest: "/opt/oracle/instantclient_12_1/libclntsh.so" }
+        - { src: "/opt/oracle/instantclient_12_1/libocci.so.12.1", dest: "/opt/oracle/instantclient_12_1/libocci.so" }
+
+    - name: Konfiguracja /etc/ld.so.conf.d/oracle-instantclient.conf
+      lineinfile:
+        path: /etc/ld.so.conf.d/oracle-instantclient.conf
+        line: "/opt/oracle/instantclient_12_1"
+        state: present
+
+    - name: Aktualizacja konfiguracji ldconfig
+      command: ldconfig
+
+    - name: Instalacja paczki imagemagick
+      apt:
+        name: imagemagick
+        state: present
+
+    - name: Konfiguracja cron dla apt-get clean
+      cron:
+        name: apt_clean
+        job: "/usr/bin/apt-get clean"
+        user: root
+        hour: 2
+        minute: 25
+        weekday: 1
+  
+    - name: Konfiguracja /etc/php/7.4/fpm/php-fpm.conf
+      copy:
+        src: files/php-fpm.conf
+        dest: /etc/php/7.4/fpm/php-fpm.conf
+        mode: '0644'
+
+    - name: Konfiguracja /etc/php/7.4/fpm/php.ini
+      copy:
+        src: files/php.ini
+        dest: /etc/php/7.4/fpm/php.ini
+        mode: '0644'
+
+    - name: Uruchomienie usługi php7.4-fpm
+      service:
+        name: php7.4-fpm
+        state: started
+        enabled: yes
+
+    - name: Konfiguracja /etc/zabbix/zabbix_agentd.conf
+      copy:
+        src: files/zabbix_agentd.conf
+        dest: /etc/zabbix/zabbix_agentd.conf
+        mode: '0644'
+
+    - name: Konfiguracja /etc/zabbix/zabbix_agentd.d
+      file:
+        path: /etc/zabbix/zabbix_agentd.d
+        state: directory
+        mode: '0640'
+        owner: zabbix
+        group: zabbix
+
+    - name: Konfiguracja /etc/zabbix/script
+      file:
+        path: /etc/zabbix/script
+        state: directory
+        mode: '0755'
+        owner: zabbix
+        group: zabbix
+
+    - name: Uruchomienie usługi zabbix-agent
+      service:
+        name: zabbix-agent
+        state: started
+        enabled: yes
+
+    - name: Konfiguracja /www-data/nginx
+      file:
+        path: /www-data/nginx
+        state: directory
+        mode: '0755'
+        owner: www-data
+        group: www-data
+
+    - name: Konfiguracja /www-data/nginx/index.html
+      copy:
+        src: files/index.html
+        dest: /www-data/nginx/index.html
+        mode: '0644'
+        owner: www-data
+        group: www-data
+
+    - name: Konfiguracja /etc/letsencrypt
+      file:
+        path: /etc/letsencrypt
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Konfiguracja /etc/letsencrypt/options-ssl-nginx.conf
+      copy:
+        src: files/options-ssl-nginx.conf
+        dest: /etc/letsencrypt/options-ssl-nginx.conf
+        mode: '0644'
+        owner: root
+        group: root
+
+    - name: Usunięcie domyślnego pliku konfiguracyjnego Nginx
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Uruchomienie usługi nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes

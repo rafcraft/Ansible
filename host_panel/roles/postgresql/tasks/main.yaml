@@ -1,0 +1,21 @@
+---
+- name: Pobierz klucz PostgreSQL
+  ansible.builtin.get_url:
+    url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
+    dest: /etc/apt/trusted.gpg.d/PostgreSQL.asc
+    mode: '0644'
+    force: true
+
+- name: Dodaj repozytorium PostgreSQL
+  apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    update_cache: true
+
+- name: Instalacja pakietów PostgreSQL
+  apt:
+    name:
+      - postgresql-server-dev-15
+      - postgresql-15-icu-ext
+      - postgresql-contrib-15
+    state: present

@@ -1,0 +1,12 @@
+---
+- hosts: virtualmachines
+  gather_facts: true
+  become: true
+
+  roles:
+    - postgresql
+    - PHP
+    - oracle_instantclient
+    - nginx
+    - zabbix
+    - borgbackup
