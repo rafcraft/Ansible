@@ -1,0 +1,13 @@
+---
+- hosts: virtualmachines
+  gather_facts: true
+  become: true
+
+  roles:
+    - roles/postgresql
+    - roles/PHP
+    - roles/oracle_instantclient
+    - roles/nginx
+    - roles/zabbix
+    - roles/borgbackup
+    - roles/users

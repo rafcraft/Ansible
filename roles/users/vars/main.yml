@@ -1,0 +1,19 @@
+---
+users:
+  - name: pawelOg
+    comment: Pawel Og
+    uid: 10001
+    gid: pawelOg
+    groups:
+      - www-data
+      - sudo
+    shell: /bin/bash
+
+  - name: pawelMi
+    comment: Pawel Mikolik
+    uid: 10002
+    gid: pawelMi
+    groups:
+      - www-data
+      - sudo
+    shell: /bin/bash

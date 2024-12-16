@@ -1,0 +1,6 @@
+nginx_web_dir: /www-data/nginx
+lets_encrypt_dir: /etc/letsencrypt
+nginx_owner: www-data
+nginx_group: www-data
+nginx_mode_dir: '0755'
+nginx_mode_file: '0644'

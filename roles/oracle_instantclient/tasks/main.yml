@@ -2,33 +2,45 @@
 ### Instalacja drivera Oracle ###
 
 - name: Utworzenie katalogu /opt/oracle
-  file:
+  ansible.builtin.file:
     path: /opt/oracle
     state: directory
     mode: '0755'
   become: true
 
+- name: Sprawdzenie, czy plik ZIP Oracle Instant Client istnieje
+  ansible.builtin.stat:
+    path: /opt/oracle/instantclient-basic-linux.x64-12.1.0.2.0.zip
+  register: instantclient_basic_file
+
 - name: Pobierz Oracle Instant Client ZIP na hoście lokalnym
-  unarchive:
-    src: https://github.com/f00b4r/oracle-instantclient/raw/master/instantclient-basic-linux.x64-12.1.0.2.0.zip
+  ansible.builtin.unarchive:
+    src: "https://github.com/f00b4r/oracle-instantclient/raw/master/instantclient-basic-linux.x64-12.1.0.2.0.zip"
     dest: /opt/oracle
     remote_src: true
+  when: not instantclient_basic_file.stat.exists
 
-- name: Pobranie Oracle Instant Client SDK ZIP na hoście lokalnym
-  unarchive:
+- name: Sprawdzenie, czy plik ZIP Oracle Instant Client SDK istnieje
+  ansible.builtin.stat:
+    path: /opt/oracle/instantclient-sdk-linux.x64-12.1.0.2.0.zip
+  register: instantclient_sdk_file
+
+- name: Pobierz Oracle Instant Client SDK ZIP na hoście lokalnym
+  ansible.builtin.unarchive:
     src: "https://github.com/f00b4r/oracle-instantclient/raw/master/instantclient-sdk-linux.x64-12.1.0.2.0.zip"
     dest: /opt/oracle
     remote_src: true
+  when: not instantclient_sdk_file.stat.exists
 
 - name: Ustawienie uprawnień dla katalogu Oracle Instant Client
-  file:
+  ansible.builtin.file:
     path: "/opt/oracle/instantclient_12_1"
     state: directory
     mode: '0755'
   become: true
 
 - name: Utworzenie linków symbolicznych dla Oracle Instant Client
-  file:
+  ansible.builtin.file:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     state: link
@@ -37,59 +49,69 @@
     - { src: "/opt/oracle/instantclient_12_1/libocci.so.12.1", dest: "/opt/oracle/instantclient_12_1/libocci.so" }
 
 - name: Utworzenie katalogu /etc/ld.so.conf.d
-  file:
+  ansible.builtin.file:
     path: /etc/ld.so.conf.d
     state: directory
     mode: '0755'
   become: true
 
 - name: Konfiguracja /etc/ld.so.conf.d/oracle-instantclient.conf
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/ld.so.conf.d/oracle-instantclient.conf
     line: "/opt/oracle/instantclient_12_1"
     state: present
     create: true
+    mode: '0644'  # Ustawienie bezpiecznych uprawnień
+    owner: root
+    group: root
   become: true
   notify:
     - Run ldconfig
 
-- name: Aktualizacja konfiguracji ldconfig
-  command: ldconfig
-  become: true
-
 - name: Instalacja pakietów wymaganych do kompilacji oci8
-  apt:
+  ansible.builtin.apt:
     pkg:
-      - php7.4-dev
+      - php{{ php_version }}-dev
       - php-pear
       - build-essential
       - libaio1
       - systemtap-sdt-dev
+    state: present
 
 - name: Sprawdzenie stanu biblioteki oci8
-  shell: pecl list oci8
+  ansible.builtin.shell: |
+    set -o pipefail
+    pecl list oci8
   ignore_errors: true
   register: oci8_status
+  changed_when: false
+  failed_when: false
+
 
 - name: Pobranie i instalacja oci8-2.2.0
-  shell: echo "instantclient,/opt/oracle/instantclient_12_1" | pecl install oci8-2.2.0
+  ansible.builtin.shell: |
+    set -o pipefail
+    echo "instantclient,/opt/oracle/instantclient_12_1" | pecl install oci8-2.2.0
   args:
-    creates: /usr/lib/php/20190902/oci8.so
+    creates: /usr/lib/php/{{ php_version }}/20190902/oci8.so
   when: oci8_status.rc != 0 or "oci8" not in oci8_status.stdout
 
+
 - name: Dodanie rozszerzenia oci8 do php.ini (FPM)
-  lineinfile:
-    path: /etc/php/7.4/fpm/php.ini
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ php_version }}/fpm/php.ini"
     line: "extension = oci8.so"
     state: present
 
 - name: Dodanie rozszerzenia oci8 do php.ini (CLI)
-  lineinfile:
-    path: /etc/php/7.4/cli/php.ini
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ php_version }}/cli/php.ini"
     line: "extension = oci8.so"
     state: present
 
-- name: Restart php7.4-fpm
-  service:
-    name: php7.4-fpm
+- name: Restart php
+  ansible.builtin.service:
+    name: php{{ php_version }}-fpm
     state: restarted
+  notify:
+    - Restart PHP service

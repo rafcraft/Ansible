@@ -1,0 +1,14 @@
+---
+- name: Upewnij się, że użytkownicy są stworzeni
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment }}"
+    uid: "{{ item.uid }}"
+    gid: "{{ item.gid }}"
+    groups: "{{ item.groups | join(',') }}"
+    home: "/home/{{ item.name }}"
+    shell: "{{ item.shell }}"
+  loop: "{{ users }}"
+  when: users | length > 0
+  tags:
+    - users

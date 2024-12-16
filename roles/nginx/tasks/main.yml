@@ -1,0 +1,81 @@
+---
+# Pobranie klucza Nginx, jeśli jeszcze nie jest pobrany
+- name: Pobierz klucz Nginx
+  ansible.builtin.get_url:
+    url: "https://cs.nginx.com/static/keys/nginx_signing.key"
+    dest: /etc/apt/trusted.gpg.d/nginx.asc
+    mode: '0644'
+    force: true
+  when: ansible_facts.packages['nginx'] is not defined
+
+# Dodanie repozytorium Nginx, jeśli jeszcze nie jest dodane
+- name: Dodaj repozytorium Nginx
+  ansible.builtin.apt_repository:
+    repo: "deb http://nginx.org/packages/mainline/ubuntu {{ ansible_distribution_release }} nginx"
+    state: present
+    update_cache: true
+  when: "'nginx' not in ansible_facts.packages"
+
+# Instalacja wymaganych pakietów Nginx oraz Certbot, tylko jeśli Nginx nie jest zainstalowany
+- name: Instalacja pakietów nginx i certbota
+  ansible.builtin.apt:
+    pkg:
+      - nginx
+      - python3-certbot-nginx
+    state: present
+  when: ansible_facts.packages['nginx'] is not defined
+
+# Utworzenie katalogu dla stron Nginx
+- name: Utworzenie katalogu dla Nginx
+  ansible.builtin.file:
+    path: "{{ nginx_web_dir }}"
+    state: directory
+    mode: "{{ nginx_mode_dir }}"
+    owner: "{{ nginx_owner }}"
+    group: "{{ nginx_group }}"
+  tags: nginx
+
+# Skopiowanie domyślnego pliku index.html
+- name: Skopiowanie pliku index.html
+  ansible.builtin.copy:
+    src: index.html
+    dest: "{{ nginx_web_dir }}/index.html"
+    mode: "{{ nginx_mode_file }}"
+    owner: "{{ nginx_owner }}"
+    group: "{{ nginx_group }}"
+  tags: nginx
+
+# Utworzenie katalogu dla Let's Encrypt
+- name: Utworzenie katalogu letsencrypt
+  ansible.builtin.file:
+    path: "{{ letsencrypt_dir }}"
+    state: directory
+    mode: "{{ nginx_mode_dir }}"
+    owner: root
+    group: root
+  tags: letsencrypt
+
+# Skopiowanie pliku konfiguracji SSL dla Nginx
+- name: Skopiowanie pliku konfiguracji SSL
+  ansible.builtin.copy:
+    src: options-ssl-nginx.conf
+    dest: "{{ letsencrypt_dir }}/options-ssl-nginx.conf"
+    mode: "{{ nginx_mode_file }}"
+    owner: root
+    group: root
+  tags: letsencrypt
+
+# Usunięcie domyślnego pliku konfiguracyjnego Nginx
+- name: Usunięcie domyślnego pliku konfiguracyjnego Nginx
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  tags: nginx
+
+# Uruchomienie i włączenie usługi Nginx, jeśli nie jest już uruchomiona
+- name: Uruchomienie i włączenie usługi nginx
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+  tags: nginx

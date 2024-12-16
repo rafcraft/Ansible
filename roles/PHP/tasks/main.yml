@@ -1,0 +1,30 @@
+---
+- name: Dodaj repozytorium PHP
+  ansible.builtin.apt_repository:
+    repo: "deb http://ppa.launchpad.net/ondrej/php/ubuntu {{ ansible_distribution_release }} main"
+    state: present
+    update_cache: true
+  become: true
+
+- name: Instalacja pakietów PHP
+  ansible.builtin.apt:
+    name:
+      - "php{{ php_version }}-cgi"
+      - "php{{ php_version }}-fpm"
+      - "php{{ php_version }}-gd"
+      - "php{{ php_version }}-curl"
+      - "php{{ php_version }}-soap"
+      - "php{{ php_version }}-imagick"
+      - "php{{ php_version }}-xmlrpc"
+      - "php{{ php_version }}-sqlite3"
+      - "php{{ php_version }}-imap"
+      - "php{{ php_version }}-cli"
+      - "php{{ php_version }}-xml"
+      - "php{{ php_version }}-mbstring"
+      - "php{{ php_version }}-zip"
+      - "php{{ php_version }}-ldap"
+      - "php{{ php_version }}-intl"
+      - "php{{ php_version }}-bcmath"
+    state: present
+    update_cache: true
+  become: true
