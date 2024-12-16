@@ -19,5 +19,5 @@ all:
         dbserver2.example.com:
           #ansible_host: 192.168.3.102
   vars:
-    ansible_user: pawel
-    ansible_become_password: C4llofduty87
+    ansible_user: #user
+    ansible_become_password: #password
