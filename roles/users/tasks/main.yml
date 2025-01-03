@@ -1,14 +1,34 @@
 ---
+- name: Upewnij się, że grupy istnieją
+  ansible.builtin.group:
+    name: "{{ item.gid }}"
+    state: present
+  loop: "{{ users }}"
+  when: users | length > 0
+
 - name: Upewnij się, że użytkownicy są stworzeni
   ansible.builtin.user:
     name: "{{ item.name }}"
     comment: "{{ item.comment }}"
     uid: "{{ item.uid }}"
-    gid: "{{ item.gid }}"
-    groups: "{{ item.groups | join(',') }}"
+    group: "{{ item.gid }}"  # Grupa główna użytkownika
+    groups: "{{ item.groups | join(',') }}"  # Dodatkowe grupy
     home: "/home/{{ item.name }}"
     shell: "{{ item.shell }}"
+    state: present
   loop: "{{ users }}"
   when: users | length > 0
-  tags:
-    - users
+
+- name: Sprawdź, czy użytkownicy zostali poprawnie utworzeni
+  ansible.builtin.command:
+    cmd: id {{ item.name }}
+  register: user_check
+  ignore_errors: true
+  loop: "{{ users }}"
+  when: users | length > 0
+  changed_when: false
+
+- name: Wyświetl wyniki sprawdzenia użytkowników
+  ansible.builtin.debug:
+    var: user_check.results
+  when: user_check is defined

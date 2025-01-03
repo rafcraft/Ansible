@@ -1,54 +1,53 @@
 ---
-- name: Pobierz klucz Zabbix
+- name: Pobierz pakiet Zabbix Release
   ansible.builtin.get_url:
-    url: http://repo.zabbix.com/zabbix-official-repo.key
-    dest: /etc/apt/trusted.gpg.d/zabbix-archive-keyring.gpg
+    url: "{{ zabbix_release_url }}"
+    dest: "{{ zabbix_release_dest }}"
     mode: '0644'
-    force: false  # Unikaj nadpisania klucza, jeśli już jest pobrany
+    force: false
 
-- name: Dodaj repozytorium Zabbix
-  ansible.builtin.apt_repository:
-    repo: "deb http://repo.zabbix.com/zabbix/{{ zabbix_version }}/ubuntu {{ ansible_distribution_release }} main"
-    state: present
+- name: Zainstaluj pakiet Zabbix Release
+  ansible.builtin.command:
+    cmd: "dpkg -i {{ zabbix_release_dest }}"
+  changed_when: false
+
+- name: Zaktualizuj cache APT
+  ansible.builtin.apt:
     update_cache: true
-  become: true
 
 - name: Zainstaluj Zabbix Agent i zależności
   ansible.builtin.apt:
-    name:
-      - zabbix-agent
+    name: zabbix-agent
     state: present
-  become: true
 
-- name: Nadaj uprawnienia dla /etc/zabbix/zabbix_agentd.conf
+- name: Nadaj uprawnienia dla zabbix_agentd.conf
   ansible.builtin.file:
-    path: /etc/zabbix/zabbix_agentd.conf
+    path: "{{ zabbix_agent_conf }}"
     owner: zabbix
     group: zabbix
     mode: '0644'
   become: true
 
-- name: Konfiguracja /etc/zabbix/zabbix_agentd.d
+- name: Konfiguracja zabbix_agentd.d
   ansible.builtin.file:
-    path: /etc/zabbix/zabbix_agentd.d
+    path: "{{ zabbix_agentd_dir }}"
     state: directory
-    mode: '0640'
+    mode: '0750'
     owner: zabbix
     group: zabbix
   become: true
 
-- name: Konfiguracja /etc/zabbix/script
+- name: Konfiguracja zabbix script
   ansible.builtin.file:
-    path: /etc/zabbix/script
+    path: "{{ zabbix_script_dir }}"
     state: directory
     mode: '0755'
     owner: zabbix
     group: zabbix
   become: true
 
-- name: Uruchom Zabbix Agent
+- name: Uruchom i włącz Zabbix Agent
   ansible.builtin.systemd:
     name: zabbix-agent
     state: started
     enabled: true
-  become: true

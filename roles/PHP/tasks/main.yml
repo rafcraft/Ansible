@@ -1,10 +1,15 @@
 ---
+- name: Dodaj klucz GPG dla ppa:ondrej/php
+  ansible.builtin.apt_key:
+    keyserver: keyserver.ubuntu.com
+    id: E5267A6C
+  become: true
+
 - name: Dodaj repozytorium PHP
   ansible.builtin.apt_repository:
     repo: "deb http://ppa.launchpad.net/ondrej/php/ubuntu {{ ansible_distribution_release }} main"
     state: present
     update_cache: true
-  become: true
 
 - name: Instalacja pakietów PHP
   ansible.builtin.apt:
@@ -27,4 +32,3 @@
       - "php{{ php_version }}-bcmath"
     state: present
     update_cache: true
-  become: true

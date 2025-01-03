@@ -3,21 +3,21 @@ all:
     vm01:
       hosts:
         host1.example.com:
-          #ansible_host: 192.168.1.101
-        host2.example.com:
-          #ansible_host: 192.168.1.102
+          ansible_host: 192.168.1.13
+        #host2.example.com:
+          #ansible_host: 
     webservers:
       hosts:
-        webserver1.example.com:
+        #webserver1.example.com:
           #ansible_host: 192.168.2.101
-        webserver2.example.com:
+        #webserver2.example.com:
           #ansible_host: 192.168.2.102
     dbservers:
       hosts:
-        dbserver1.example.com:
+        #dbserver1.example.com:
           #ansible_host: 192.168.3.101
-        dbserver2.example.com:
+        #dbserver2.example.com:
           #ansible_host: 192.168.3.102
   vars:
-    ansible_user: #user
-    ansible_become_password: #password
+    ansible_user: pawelserv
+    ansible_become_password: C4llofduty87

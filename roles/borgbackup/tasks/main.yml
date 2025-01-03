@@ -1,14 +1,9 @@
 ---
-- name: Pobierz klucz BorgBackup
-  ansible.builtin.get_url:
+- name: Pobierz i dodaj klucz GPG dla BorgBackup
+  ansible.builtin.apt_key:
     url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xe36ce452f7c2ae96fb1354901bcb19e03c2a1859"
-    dest: "/tmp/BorgBackup-archive-keyring.gpg"
-    checksum: "sha256:... (tutaj wpisz odpowiednią sumę kontrolną)"
-    force: true
-    mode: '0644'  # Ustawienie bezpiecznych uprawnień
-    owner: root
-    group: root
-  when: ansible_facts.packages['borgbackup'] is not defined
+    state: present
+  when: "'borgbackup' not in ansible_facts.packages"
 
 - name: Dodaj repozytorium BorgBackup, jeśli jeszcze nie jest dodane
   ansible.builtin.apt_repository:
@@ -21,4 +16,4 @@
   ansible.builtin.package:
     name: borgbackup
     state: present
-  when: ansible_facts.packages['borgbackup'] is not defined
+  when: "'borgbackup' not in ansible_facts.packages"

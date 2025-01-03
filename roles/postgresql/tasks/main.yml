@@ -1,16 +1,18 @@
 ---
-- name: Pobierz klucz PostgreSQL
-  ansible.builtin.get_url:
-    url: "https://www.postgresql.org/media/keys/ACCC4CF8.asc"
-    dest: /etc/apt/trusted.gpg.d/PostgreSQL.asc
-    mode: '0644'
-    force: false  # Unikaj ponownego pobierania klucza, jeśli już jest pobrany
-  become: true
-  when: not ansible_facts.packages['postgresql']
+- name: Pobierz i dodaj klucz GPG dla repozytorium PostgreSQL
+  ansible.builtin.apt_key:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    state: present
 
 - name: Dodaj repozytorium PostgreSQL
   ansible.builtin.apt_repository:
     repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    update_cache: true
+
+- name: Zainstaluj PostgreSQL
+  ansible.builtin.apt:
+    name: postgresql
     state: present
     update_cache: true
   become: true
@@ -24,3 +26,11 @@
     state: present
     update_cache: true
   become: true
+
+- name: Restart PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    state: restarted
+    enabled: true
+  become: true
+  tags: postgresql
