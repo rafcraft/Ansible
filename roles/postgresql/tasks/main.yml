@@ -1,21 +1,52 @@
 ---
+- name: Sprawdź, czy klucz GPG dla repozytorium PostgreSQL jest już dodany
+  ansible.builtin.command: "gpg --list-keys ACCC4CF8"
+  register: gpg_key_check
+  ignore_errors: true
+  changed_when: false
+
 - name: Pobierz i dodaj klucz GPG dla repozytorium PostgreSQL
   ansible.builtin.apt_key:
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
     state: present
+  when: gpg_key_check.rc != 0
+
+# Sekcja: Dodanie repozytorium PostgreSQL
+- name: Sprawdź, czy repozytorium PostgreSQL jest już dodane
+  ansible.builtin.shell: |
+    grep -h '^deb .*postgresql.*pgdg' /etc/apt/sources.list /etc/apt/sources.list.d/*
+  register: repo_check
+  ignore_errors: true
+  changed_when: false
 
 - name: Dodaj repozytorium PostgreSQL
   ansible.builtin.apt_repository:
-    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    repo: >
+      deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main
     state: present
     update_cache: true
+  when: repo_check.rc != 0
+
+# Sekcja: Instalacja PostgreSQL
+- name: Sprawdź, czy PostgreSQL jest już zainstalowany
+  ansible.builtin.shell: "dpkg -l | grep postgresql"
+  register: postgresql_check
+  ignore_errors: true
+  changed_when: false
 
 - name: Zainstaluj PostgreSQL
   ansible.builtin.apt:
     name: postgresql
     state: present
-    update_cache: true
   become: true
+  when: postgresql_check.rc != 0
+
+- name: Sprawdź, czy pakiety PostgreSQL są już zainstalowane
+  ansible.builtin.shell: |
+    dpkg -l | grep 'postgresql-server-dev\|postgresql-icu-ext\|postgresql-contrib'
+  register: postgresql_packages_check
+  ignore_errors: true
+  changed_when: false
 
 - name: Instalacja pakietów PostgreSQL
   ansible.builtin.apt:
@@ -24,9 +55,44 @@
       - "postgresql-{{ postgresql_version }}-icu-ext"
       - "postgresql-contrib-{{ postgresql_version }}"
     state: present
-    update_cache: true
+  become: true
+  when: postgresql_packages_check.rc != 0
+
+# Sekcja: Konfiguracja lokalizacji bazy danych
+- name: Sprawdź, czy katalog /var/lib/postgresql jest pusty
+  ansible.builtin.stat:
+    path: /var/lib/postgresql
+  register: postgresql_lib_check
+
+- name: Usuń zawartość katalogu /var/lib/postgresql
+  ansible.builtin.file:
+    path: /var/lib/postgresql
+    state: absent
+  become: true
+  when: postgresql_lib_check.stat.exists and postgresql_lib_check.stat.isdir
+
+- name: Utwórz katalog /var/lib/postgresql
+  ansible.builtin.file:
+    path: /var/lib/postgresql
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0755'
   become: true
 
+- name: Sprawdź, czy klaster PostgreSQL w /var/lib/postgresql już istnieje
+  ansible.builtin.shell: "pg_lsclusters | grep '{{ postgresql_version }} main'"
+  register: cluster_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Utwórz nowy klaster PostgreSQL
+  ansible.builtin.command:
+    cmd: pg_createcluster --start -d /var/lib/postgresql {{ postgresql_version }} main --locale=en_US.UTF-8
+  become: true
+  when: cluster_check.rc != 0
+
+# Sekcja: Uruchomienie i weryfikacja usługi PostgreSQL
 - name: Restart PostgreSQL
   ansible.builtin.systemd:
     name: postgresql
@@ -34,3 +100,13 @@
     enabled: true
   become: true
   tags: postgresql
+
+- name: Sprawdź stan usługi PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+  register: postgresql_status
+
+- name: Wyświetl stan usługi PostgreSQL
+  ansible.builtin.debug:
+    var: postgresql_status

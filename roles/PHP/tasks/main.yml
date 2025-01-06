@@ -1,16 +1,19 @@
 ---
+# Sekcja: Dodanie klucza GPG
 - name: Dodaj klucz GPG dla ppa:ondrej/php
   ansible.builtin.apt_key:
     keyserver: keyserver.ubuntu.com
     id: E5267A6C
   become: true
 
+# Sekcja: Dodanie repozytorium PHP
 - name: Dodaj repozytorium PHP
   ansible.builtin.apt_repository:
     repo: "deb http://ppa.launchpad.net/ondrej/php/ubuntu {{ ansible_distribution_release }} main"
     state: present
     update_cache: true
 
+# Sekcja: Instalacja PHP
 - name: Instalacja pakietów PHP
   ansible.builtin.apt:
     name:
@@ -31,4 +34,31 @@
       - "php{{ php_version }}-intl"
       - "php{{ php_version }}-bcmath"
     state: present
-    update_cache: true
+  become: true
+
+# Sekcja: Konfiguracja plików PHP
+- name: Skonfiguruj php-fpm.conf
+  ansible.builtin.copy:
+    src: files/php-fpm.conf
+    dest: /etc/php/{{ php_version }}/fpm/php-fpm.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Skonfiguruj php.ini
+  ansible.builtin.copy:
+    src: files/php.ini
+    dest: /etc/php/{{ php_version }}/fpm/php.ini
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+# Sekcja: Zarządzanie usługą PHP-FPM
+- name: Upewnij się, że PHP-FPM jest uruchomiony i włączony do uruchamiania przy starcie systemu
+  ansible.builtin.systemd:
+    name: php{{ php_version }}-fpm
+    state: started
+    enabled: true
+  become: true

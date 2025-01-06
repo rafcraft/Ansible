@@ -1,23 +1,34 @@
 ---
+# Sekcja: Dodanie klucza GPG
 - name: Pobierz klucz Nginx
   ansible.builtin.apt_key:
-    url: "https://nginx.org/packages/mainline/ubuntu/dists/noble/Release.gpg"
+    url: "https://nginx.org/keys/nginx_signing.key"
     state: present
 
+# Sekcja: Dodanie repozytorium Nginx
 - name: Dodaj repozytorium Nginx
   ansible.builtin.apt_repository:
     repo: "deb http://nginx.org/packages/mainline/ubuntu {{ ansible_distribution_release }} nginx"
     state: present
     update_cache: true
 
+# Sekcja: Instalacja Nginx i Certbota
 - name: Instalacja pakietów nginx i certbota
   ansible.builtin.apt:
     name:
       - nginx
       - python3-certbot-nginx
+      - apache2
     state: present
     update_cache: true
 
+# Sekcja: Upewnij się, że Apache2 jest odinstalowany
+- name: Upewnij się, że Apache2 jest odinstalowany
+  ansible.builtin.apt:
+    name: apache2
+    state: absent
+
+# Sekcja: Konfiguracja katalogów
 - name: Utworzenie katalogu dla Nginx
   ansible.builtin.file:
     path: "{{ nginx_web_dir }}"
@@ -34,6 +45,7 @@
     owner: root
     group: root
 
+# Sekcja: Konfiguracja plików
 - name: Skopiowanie pliku konfiguracji SSL
   ansible.builtin.copy:
     src: options-ssl-nginx.conf
@@ -47,6 +59,15 @@
     path: /etc/nginx/sites-enabled/default
     state: absent
 
+- name: Skopiowanie pliku index.html
+  ansible.builtin.copy:
+    content: "<html><body><h1>Welcome to Nginx!</h1></body></html>"
+    dest: "{{ nginx_web_dir }}/index.html"
+    owner: "{{ nginx_owner }}"
+    group: "{{ nginx_group }}"
+    mode: "{{ nginx_mode_file }}"
+
+# Sekcja: Uruchomienie i weryfikacja usługi Nginx
 - name: Uruchomienie i włączenie usługi nginx
   ansible.builtin.service:
     name: nginx

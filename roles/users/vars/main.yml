@@ -8,6 +8,7 @@ users:
       - www-data
       - sudo
     shell: /bin/bash
+    # key: "ssh-rsa "
 
   - name: pawelMi
     comment: Pawel Mikolik
@@ -17,3 +18,4 @@ users:
       - www-data
       - sudo
     shell: /bin/bash
+    # key: "ssh-rsa "

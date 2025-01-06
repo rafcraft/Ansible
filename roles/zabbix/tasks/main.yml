@@ -1,4 +1,5 @@
 ---
+# Sekcja: Pobieranie i instalacja Zabbix Release
 - name: Pobierz pakiet Zabbix Release
   ansible.builtin.get_url:
     url: "{{ zabbix_release_url }}"
@@ -15,19 +16,29 @@
   ansible.builtin.apt:
     update_cache: true
 
+# Sekcja: Instalacja Zabbix Agent i zależności
 - name: Zainstaluj Zabbix Agent i zależności
   ansible.builtin.apt:
-    name: zabbix-agent
+    name:
+      - zabbix-agent
+      - zabbix-sender
     state: present
 
-- name: Nadaj uprawnienia dla zabbix_agentd.conf
-  ansible.builtin.file:
-    path: "{{ zabbix_agent_conf }}"
+# Sekcja: Konfiguracja pliku zabbix_agentd.conf
+- name: Skonfiguruj zabbix_agentd.conf
+  ansible.builtin.copy:
+    content: |
+      # Zabbix Agent configuration file
+      Server=127.0.0.1
+      Hostname=Zabbix server
+      Include={{ zabbix_agentd_dir }}/*.conf
+    dest: "{{ zabbix_agent_conf }}"
     owner: zabbix
     group: zabbix
     mode: '0644'
   become: true
 
+# Sekcja: Konfiguracja zabbix_agentd.d
 - name: Konfiguracja zabbix_agentd.d
   ansible.builtin.file:
     path: "{{ zabbix_agentd_dir }}"
@@ -37,6 +48,7 @@
     group: zabbix
   become: true
 
+# Sekcja: Konfiguracja zabbix script
 - name: Konfiguracja zabbix script
   ansible.builtin.file:
     path: "{{ zabbix_script_dir }}"
@@ -46,8 +58,20 @@
     group: zabbix
   become: true
 
+# Sekcja: Uruchomienie i weryfikacja usługi Zabbix Agent
 - name: Uruchom i włącz Zabbix Agent
   ansible.builtin.systemd:
     name: zabbix-agent
     state: started
     enabled: true
+  become: true
+
+- name: Sprawdź stan usługi Zabbix Agent
+  ansible.builtin.systemd:
+    name: zabbix-agent
+    state: started
+  register: zabbix_agent_status
+
+- name: Wyświetl stan usługi Zabbix Agent
+  ansible.builtin.debug:
+    var: zabbix_agent_status

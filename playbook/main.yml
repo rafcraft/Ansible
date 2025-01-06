@@ -1,4 +1,5 @@
 ---
+- name: Konfiguracja serwera za pomocą Ansible
 - hosts: all
   gather_facts: true
   become: true

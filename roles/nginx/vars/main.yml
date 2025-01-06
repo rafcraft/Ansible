@@ -1,3 +1,4 @@
+---
 nginx_web_dir: /www-data/nginx
 letsencrypt_dir: /etc/letsencrypt
 nginx_owner: www-data

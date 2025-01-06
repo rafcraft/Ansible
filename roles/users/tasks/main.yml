@@ -1,34 +1,91 @@
 ---
-- name: Upewnij się, że grupy istnieją
+- name: Sprawdzanie istnienia grup użytkowników
+  ansible.builtin.shell: "getent group {{ item.gid }}"
+  register: group_check
+  ignore_errors: true
+  changed_when: false
+  loop: "{{ users }}"
+  loop_control:
+    loop_var: item
+
+- name: Tworzenie grup użytkowników
   ansible.builtin.group:
     name: "{{ item.gid }}"
     state: present
+  when: group_check.results[item_index].rc != 0
   loop: "{{ users }}"
-  when: users | length > 0
+  loop_control:
+    loop_var: item
+    index_var: item_index
 
-- name: Upewnij się, że użytkownicy są stworzeni
+- name: Sprawdzanie istnienia użytkowników
+  ansible.builtin.shell: "id -u {{ item.name }}"
+  register: user_check
+  ignore_errors: true
+  changed_when: false
+  loop: "{{ users }}"
+  loop_control:
+    loop_var: item
+
+- name: Tworzenie użytkowników
   ansible.builtin.user:
     name: "{{ item.name }}"
     comment: "{{ item.comment }}"
     uid: "{{ item.uid }}"
-    group: "{{ item.gid }}"  # Grupa główna użytkownika
-    groups: "{{ item.groups | join(',') }}"  # Dodatkowe grupy
-    home: "/home/{{ item.name }}"
+    group: "{{ item.gid }}"
+    groups: "{{ item.groups | join(',') }}"
     shell: "{{ item.shell }}"
+    password: "{{ item.password | default(omit) }}"
     state: present
+    createhome: true
+  when: user_check.results[item_index].rc != 0
   loop: "{{ users }}"
-  when: users | length > 0
+  loop_control:
+    loop_var: item
+    index_var: item_index
 
-- name: Sprawdź, czy użytkownicy zostali poprawnie utworzeni
-  ansible.builtin.command:
-    cmd: id {{ item.name }}
-  register: user_check
-  ignore_errors: true
+- name: Sprawdzanie uprawnień do katalogów domowych użytkowników
+  ansible.builtin.stat:
+    path: "/home/{{ item.name }}"
+  register: home_stat
   loop: "{{ users }}"
-  when: users | length > 0
-  changed_when: false
+  loop_control:
+    loop_var: item
 
-- name: Wyświetl wyniki sprawdzenia użytkowników
-  ansible.builtin.debug:
-    var: user_check.results
-  when: user_check is defined
+- name: Ustawianie uprawnień do katalogów domowych użytkowników
+  ansible.builtin.file:
+    path: "/home/{{ item.name }}"
+    owner: "{{ item.name }}"
+    group: "{{ item.gid }}"
+    mode: '0750'
+  when: home_stat.results[item_index].stat.exists and
+        (home_stat.results[item_index].stat.pw_name != item.name or
+         home_stat.results[item_index].stat.gr_name != item.gid or
+         home_stat.results[item_index].stat.mode != '0750') and
+         item.createhome | default(true)
+  loop: "{{ users }}"
+  loop_control:
+    loop_var: item
+    index_var: item_index
+
+# - name: Sprawdzanie obecności kluczy publicznych użytkowników
+#   ansible.builtin.stat:
+#     path: "/home/{{ item.name }}/.ssh/authorized_keys"
+#   register: ssh_stat
+#   loop: "{{ users }}"
+#   loop_control:
+#     loop_var: item
+
+# - name: Instalacja kluczy publicznych użytkowników
+#   ansible.builtin.authorized_key:
+#     user: "{{ item.name }}"
+#     key: "{{ item.key }}"
+#     state: present
+#   when: ssh_stat.results[item_index].stat.exists == false or
+#         (ssh_stat.results[item_index].stat.exists and
+#         item.key not in ssh_stat.results[item_index].content) and
+#         item.key is defined
+#   loop: "{{ users }}"
+#   loop_control:
+#     loop_var: item
+#     index_var: item_index
