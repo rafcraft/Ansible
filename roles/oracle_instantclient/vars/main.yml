@@ -1,8 +1,7 @@
 ---
 php_version: 8.0
-oracle_client_basic: "https://www.oracle.com/webapps/redirect/signon?nexturl=https://download.oracle.com/otn/linux/instantclient/121020/instantclient-basic-linux.zseries64-12.1.0.2.0.zip"
-oracle_client_sdk: "https://www.oracle.com/webapps/redirect/signon?nexturl=https://download.oracle.com/otn/linux/instantclient/121020/instantclient-sdk-linux.zseries64-12.1.0.2.0.zip"
-oracle_basic_zip: "/opt/oracle/instantclient-basic-linux.x64-12.1.0.2.0.zip"
-oracle_sdk_zip: "/opt/oracle/instantclient-sdk-linux.zseries64-12.1.0.2.0.zip"
-oracle_client_dir: "/opt/oracle/instantclient_12_1"
+oracle_basic_zip: "files/instantclient-basic-linux.x64-19.8.0.0.0dbru.zip"
+oracle_sdk_zip: "files/instantclient-sdk-linux.x64-19.8.0.0.0dbru.zip"
 oracle_dir: "/opt/oracle/"
+oracle_client_dir: "/opt/oracle/"
+oci8_version: "3.0.1"

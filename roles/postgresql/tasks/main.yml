@@ -1,4 +1,13 @@
 ---
+- name: Ustaw lokalizację klastra PostgreSQL
+  ansible.builtin.command: "locale -a"
+  register: locale_check
+  changed_when: false
+
+- name: Upewnienie czy lokalizacja jest dostępna
+  set_fact:
+    postgresql_locale: "{{ (locale_check.stdout_lines | select('match', '^pl_PL.UTF-8$')) | first | default('C.UTF-8') }}"
+
 - name: Sprawdź, czy klucz GPG dla repozytorium PostgreSQL jest już dodany
   ansible.builtin.command: "gpg --list-keys ACCC4CF8"
   register: gpg_key_check
@@ -6,9 +15,10 @@
   changed_when: false
 
 - name: Pobierz i dodaj klucz GPG dla repozytorium PostgreSQL
-  ansible.builtin.apt_key:
+  ansible.builtin.get_url:
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
-    state: present
+    dest: /etc/apt/trusted.gpg.d/postgresql.asc
+    mode: '0644'
   when: gpg_key_check.rc != 0
 
 # Sekcja: Dodanie repozytorium PostgreSQL
@@ -59,19 +69,7 @@
   when: postgresql_packages_check.rc != 0
 
 # Sekcja: Konfiguracja lokalizacji bazy danych
-- name: Sprawdź, czy katalog /var/lib/postgresql jest pusty
-  ansible.builtin.stat:
-    path: /var/lib/postgresql
-  register: postgresql_lib_check
-
-- name: Usuń zawartość katalogu /var/lib/postgresql
-  ansible.builtin.file:
-    path: /var/lib/postgresql
-    state: absent
-  become: true
-  when: postgresql_lib_check.stat.exists and postgresql_lib_check.stat.isdir
-
-- name: Utwórz katalog /var/lib/postgresql
+- name: Upewnij się, że katalog /var/lib/postgresql istnieje
   ansible.builtin.file:
     path: /var/lib/postgresql
     state: directory
@@ -80,17 +78,15 @@
     mode: '0755'
   become: true
 
-- name: Sprawdź, czy klaster PostgreSQL w /var/lib/postgresql już istnieje
-  ansible.builtin.shell: "pg_lsclusters | grep '{{ postgresql_version }} main'"
-  register: cluster_check
-  ignore_errors: true
-  changed_when: false
-
-- name: Utwórz nowy klaster PostgreSQL
-  ansible.builtin.command:
-    cmd: pg_createcluster --start -d /var/lib/postgresql {{ postgresql_version }} main --locale=en_US.UTF-8
+- name: Skonfiguruj postgresql.conf, aby ustawić lokalizację danych
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+    regexp: '^data_directory'
+    line: "data_directory = '/var/lib/postgresql'"
+    owner: postgres
+    group: postgres
+    mode: '0644'
   become: true
-  when: cluster_check.rc != 0
 
 # Sekcja: Uruchomienie i weryfikacja usługi PostgreSQL
 - name: Restart PostgreSQL

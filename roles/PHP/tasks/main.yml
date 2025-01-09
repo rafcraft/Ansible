@@ -56,7 +56,7 @@
   become: true
 
 # Sekcja: Zarządzanie usługą PHP-FPM
-- name: Upewnij się, że PHP-FPM jest uruchomiony i włączony do uruchamiania przy starcie systemu
+- name: Upewnij się, że PHP-FPM jest uruchomiony
   ansible.builtin.systemd:
     name: php{{ php_version }}-fpm
     state: started

@@ -18,7 +18,6 @@
     name:
       - nginx
       - python3-certbot-nginx
-      - apache2
     state: present
     update_cache: true
 
@@ -48,7 +47,7 @@
 # Sekcja: Konfiguracja plików
 - name: Skopiowanie pliku konfiguracji SSL
   ansible.builtin.copy:
-    src: options-ssl-nginx.conf
+    src: "{{ role_path }}/files/options-ssl-nginx.conf"
     dest: "{{ letsencrypt_dir }}/options-ssl-nginx.conf"
     mode: "{{ nginx_mode_file }}"
     owner: root
@@ -67,9 +66,17 @@
     group: "{{ nginx_group }}"
     mode: "{{ nginx_mode_file }}"
 
-# Sekcja: Uruchomienie i weryfikacja usługi Nginx
+# Sekcja: Uruchomienie i włączenie usługi Nginx
 - name: Uruchomienie i włączenie usługi nginx
   ansible.builtin.service:
     name: nginx
     state: started
     enabled: true
+
+# Sekcja: Dodanie cron job dla Nginx stats
+- name: Dodanie cron job dla Nginx stats
+  ansible.builtin.cron:
+    name: "Nginx Stats"
+    minute: "*/1"
+    user: "root"
+    job: "/etc/zabbix/script/zbx_nginx_stats.py"

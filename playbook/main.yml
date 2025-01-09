@@ -1,6 +1,6 @@
 ---
-- name: Konfiguracja serwera za pomocą Ansible
-- hosts: all
+- name: Konfiguracja jednego serwera (All in one)
+  hosts: all
   gather_facts: true
   become: true
 

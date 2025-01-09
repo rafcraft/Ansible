@@ -1,64 +1,36 @@
 ---
+- name: Aktualizacja pamięci podręcznej pakietów
+  ansible.builtin.apt:
+    update_cache: true
 
-- name: Utworzenie katalogu /opt/oracle
+- name: Rozpakowanie Oracle Instant Client Basic 
+  ansible.builtin.unarchive:
+    src: "{{ oracle_basic_zip }}"
+    dest: "{{ role_path }}/files"
+    remote_src: false
+  delegate_to: localhost
+
+- name: Rozpakowanie Oracle Instant Client SDK
+  ansible.builtin.unarchive:
+    src: "{{ oracle_sdk_zip }}"
+    dest: "{{ role_path }}/files"
+    remote_src: false
+  delegate_to: localhost
+
+- name: Utworzenie katalogu
   ansible.builtin.file:
     path: "{{ oracle_dir }}"
     state: directory
     mode: '0755'
 
-- name: Utworzenie katalogu dla Oracle Instant Client
-  ansible.builtin.file:
-    path: "{{ oracle_client_dir }}"
-    state: directory
+- name: Przeniesienie rozpakowanych plików Oracle Instant Client
+  ansible.builtin.copy:
+    src: "{{ role_path }}/files/instantclient_19_8"
+    dest: "{{ oracle_client_dir }}"
     mode: '0755'
-
-- name: Upewnij się, że narzędzie unzip jest zainstalowane
-  ansible.builtin.package:
-    name: unzip
-    state: present
-
-- name: Pobierz Oracle Instant Client Basic ZIP na serwerze zdalnym
-  ansible.builtin.get_url:
-    url: "{{ oracle_client_basic }}"
-    dest: "{{ oracle_basic_zip }}"
-    mode: '0644'
-    force: false
-
-- name: Pobierz Oracle Instant Client SDK ZIP na serwerze zdalnym
-  ansible.builtin.get_url:
-    url: "{{ oracle_client_sdk }}"
-    dest: "{{ oracle_sdk_zip }}"
-    mode: '0644'
-    force: false
-
-- name: Sprawdź, czy Oracle Instant Client Basic ZIP istnieje
-  ansible.builtin.stat:
-    path: "{{ oracle_basic_zip }}"
-  register: oracle_basic_zip_stat
-
-- name: Sprawdź, czy Oracle Instant Client SDK ZIP istnieje
-  ansible.builtin.stat:
-    path: "{{ oracle_sdk_zip }}"
-  register: oracle_sdk_zip_stat
-
-- name: Rozpakuj Oracle Instant Client Basic ZIP na serwerze zdalnym
-  ansible.builtin.unarchive:
-    src: "{{ oracle_basic_zip }}"
-    dest: "{{ oracle_client_dir }}"
-    remote_src: true
-  when: oracle_basic_zip_stat.stat.exists and oracle_basic_zip_stat.stat.size > 0
-
-- name: Rozpakuj Oracle Instant Client SDK ZIP na serwerze zdalnym
-  ansible.builtin.unarchive:
-    src: "{{ oracle_sdk_zip }}"
-    dest: "{{ oracle_client_dir }}"
-    remote_src: true
-  when: oracle_sdk_zip_stat.stat.exists and oracle_sdk_zip_stat.stat.size > 0
-
-- name: Przenieś pliki nagłówkowe SDK
-  ansible.builtin.command:
-    cmd: mv "{{ oracle_client_dir }}/sdk/include" "{{ oracle_client_dir }}/include"
-    creates: "{{ oracle_client_dir }}/include"
+    owner: root
+    group: root
+  ignore_errors: true
 
 - name: Utworzenie linków symbolicznych dla Oracle Instant Client
   ansible.builtin.file:
@@ -66,14 +38,16 @@
     dest: "{{ item.dest }}"
     state: link
   loop:
-    - { src: "{{ oracle_client_dir }}/libclntsh.so.12.1", dest: "{{ oracle_client_dir }}/libclntsh.so" }
-    - { src: "{{ oracle_client_dir }}/libocci.so.12.1", dest: "{{ oracle_client_dir }}/libocci.so" }
+    - { src: "{{ oracle_client_dir }}/instantclient_19_8/libclntsh.so.19.1", dest: "{{ oracle_client_dir }}/libclntsh.so" }
+    - { src: "{{ oracle_client_dir }}/instantclient_19_8/libocci.so.19.1", dest: "{{ oracle_client_dir }}/libocci.so" }
 
-- name: Utworzenie katalogu /etc/ld.so.conf.d
-  ansible.builtin.file:
-    path: /etc/ld.so.conf.d
-    state: directory
-    mode: '0755'
+- name: Dodanie ścieżki Oracle Instant Client do ld.so.conf.d
+  copy:
+    content: "/opt/oracle/instantclient_19_8\n"
+    dest: /etc/ld.so.conf.d/oracle-instantclient.conf
+    owner: root
+    group: root
+    mode: '0644'
 
 - name: Konfiguracja /etc/ld.so.conf.d/oracle-instantclient.conf
   ansible.builtin.lineinfile:
@@ -85,13 +59,9 @@
     owner: root
     group: root
 
-- name: Dodanie zmiennych środowiskowych do /etc/environment
-  ansible.builtin.lineinfile:
-    path: /etc/environment
-    line: |
-      ORACLE_HOME={{ oracle_client_dir }}
-      LD_LIBRARY_PATH=$LD_LIBRARY_PATH:{{ oracle_client_dir }}
-    state: present
+- name: Reload dynamic linker configuration
+  command: ldconfig
+  become: true
 
 - name: Instalacja pakietów wymaganych do kompilacji oci8
   ansible.builtin.apt:
@@ -99,7 +69,7 @@
       - php{{ php_version }}-dev
       - php-pear
       - build-essential
-      - libaio1
+      - libaio-dev
       - systemtap-sdt-dev
       - php{{ php_version }}-xml
     state: present
@@ -113,29 +83,29 @@
   changed_when: false
   failed_when: false
 
-- name: Pobranie i instalacja oci8-3.0.1
+- name: Pobranie i instalacja oci8
   ansible.builtin.shell: |
-    /bin/bash -c 'set -o pipefail; echo "instantclient,{{ oracle_client_dir }}" | pecl install oci8-3.0.1'
+    /bin/bash -c 'set -o pipefail; echo "instantclient,/opt/oracle/instantclient_19_8" | pecl install oci8-{{ oci8_version }}'
   args:
-    creates: /usr/lib/php/{{ php_version }}/oci8.so
+    creates: /usr/lib/php/20200930/oci8.so
   environment:
-    ORACLE_HOME: "{{ oracle_client_dir }}"
-    LD_LIBRARY_PATH: "{{ oracle_client_dir }}"
+    ORACLE_HOME: "/opt/oracle/instantclient_19_8"
+    LD_LIBRARY_PATH: "/opt/oracle/instantclient_19_8"
   when: oci8_status.rc != 0 or "oci8" not in oci8_status.stdout
 
 - name: Dodanie rozszerzenia oci8 do php.ini (FPM)
   ansible.builtin.lineinfile:
-    path: "/etc/php/{{ php_version }}/fpm/php.ini"
+    path: "/etc/php/8.0/fpm/php.ini"
     line: "extension = oci8.so"
     state: present
 
 - name: Dodanie rozszerzenia oci8 do php.ini (CLI)
   ansible.builtin.lineinfile:
-    path: "/etc/php/{{ php_version }}/cli/php.ini"
+    path: "/etc/php/8.0/cli/php.ini"
     line: "extension = oci8.so"
     state: present
 
 - name: Restart php
   ansible.builtin.service:
-    name: php{{ php_version }}-fpm
+    name: php8.0-fpm
     state: restarted
