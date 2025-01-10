@@ -24,7 +24,7 @@
 
 - name: Skonfiguruj plik zabbix_agentd.conf
   ansible.builtin.template:
-    src: templates/zabbix_agentd.conf.j2
+    src: files/zabbix_agentd.conf.j2
     dest: "{{ zabbix_agent_conf }}"
     mode: '0644'
     owner: 'root'
@@ -59,10 +59,3 @@
     group: 'zabbix'
     mode: '0640'
   notify: Restart Zabbix Agent
-
-  handlers:
-    - name: Restart Zabbix Agent
-      ansible.builtin.service:
-        name: zabbix-agent
-        state: restarted
-        enabled: true
