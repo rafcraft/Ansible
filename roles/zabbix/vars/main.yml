@@ -1,8 +1,6 @@
 ---
 zabbix_version: 6.4
-zabbix_release_url: >
-  https://repo.zabbix.com/zabbix/{{ zabbix_version }}/ubuntu/pool/main/z/zabbix-release/
-  zabbix-release_latest_{{ zabbix_version }}+ubuntu{{ ansible_distribution_version | regex_replace('\\..*', '') }}_all.deb
+zabbix_release_url: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest%2Bubuntu24.04_all.deb"
 zabbix_release_dest: "/tmp/zabbix-release.deb"
 zabbix_agent_conf: "/etc/zabbix/zabbix_agentd.conf"
 zabbix_agentd_dir: "/etc/zabbix/zabbix_agentd.d"

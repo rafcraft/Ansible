@@ -3,7 +3,7 @@
   ansible.builtin.apt:
     update_cache: true
 
-- name: Rozpakowanie Oracle Instant Client Basic 
+- name: Rozpakowanie Oracle Instant Client Basic
   ansible.builtin.unarchive:
     src: "{{ oracle_basic_zip }}"
     dest: "{{ role_path }}/files"
@@ -30,7 +30,7 @@
     mode: '0755'
     owner: root
     group: root
-  ignore_errors: true
+  failed_when: false
 
 - name: Utworzenie linków symbolicznych dla Oracle Instant Client
   ansible.builtin.file:
@@ -42,7 +42,7 @@
     - { src: "{{ oracle_client_dir }}/instantclient_19_8/libocci.so.19.1", dest: "{{ oracle_client_dir }}/libocci.so" }
 
 - name: Dodanie ścieżki Oracle Instant Client do ld.so.conf.d
-  copy:
+  ansible.builtin.copy:
     content: "/opt/oracle/instantclient_19_8\n"
     dest: /etc/ld.so.conf.d/oracle-instantclient.conf
     owner: root
@@ -60,7 +60,9 @@
     group: root
 
 - name: Reload dynamic linker configuration
-  command: ldconfig
+  ansible.builtin.command:
+    cmd: ldconfig
+    creates: /etc/ld.so.cache
   become: true
 
 - name: Instalacja pakietów wymaganych do kompilacji oci8
@@ -85,7 +87,8 @@
 
 - name: Pobranie i instalacja oci8
   ansible.builtin.shell: |
-    /bin/bash -c 'set -o pipefail; echo "instantclient,/opt/oracle/instantclient_19_8" | pecl install oci8-{{ oci8_version }}'
+    set -o pipefail
+    /bin/bash -c 'echo "instantclient,/opt/oracle/instantclient_19_8" | pecl install oci8-{{ oci8_version }}'
   args:
     creates: /usr/lib/php/20200930/oci8.so
   environment:

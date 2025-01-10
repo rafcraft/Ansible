@@ -3,17 +3,18 @@
   ansible.builtin.apt_key:
     url: "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xe36ce452f7c2ae96fb1354901bcb19e03c2a1859"
     state: present
-  when: "'borgbackup' not in ansible_facts.packages"
 
-- name: Dodaj repozytorium BorgBackup, jeśli jeszcze nie jest dodane
+- name: Dodaj repozytorium BorgBackup
   ansible.builtin.apt_repository:
     repo: "deb http://ppa.launchpad.net/costamagnagianfranco/borgbackup/ubuntu {{ ansible_distribution_release }} main"
     state: present
     update_cache: true
-  when: "'costamagnagianfranco-borgbackup' not in ansible_facts.packages"
 
-- name: Instalacja BorgBackup, jeśli nie jest zainstalowany
+- name: Instalacja najnowszej wersji pakietów
   ansible.builtin.package:
-    name: borgbackup
+    name:
+      - borgbackup2
+      - nfs-common
+      - certbot
     state: present
-  when: "'borgbackup' not in ansible_facts.packages"
+  when: "'borgbackup2' not in ansible_facts.packages"

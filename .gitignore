@@ -399,3 +399,6 @@ FodyWeavers.xsd
 
 # Ignor all zip files
 *.zip
+
+# Ignor Other directory 
+roles/oracle_instantclient/files/*

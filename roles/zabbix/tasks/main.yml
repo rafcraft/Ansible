@@ -1,5 +1,4 @@
 ---
-# Sekcja: Pobieranie i instalacja Zabbix Release
 - name: Pobierz pakiet Zabbix Release
   ansible.builtin.get_url:
     url: "{{ zabbix_release_url }}"
@@ -16,7 +15,6 @@
   ansible.builtin.apt:
     update_cache: true
 
-# Sekcja: Instalacja Zabbix Agent i zależności
 - name: Zainstaluj Zabbix Agent i zależności
   ansible.builtin.apt:
     name:
@@ -24,54 +22,47 @@
       - zabbix-sender
     state: present
 
-# Sekcja: Konfiguracja pliku zabbix_agentd.conf
-- name: Skonfiguruj zabbix_agentd.conf
-  ansible.builtin.copy:
-    content: |
-      # Zabbix Agent configuration file
-      Server=127.0.0.1
-      Hostname=Zabbix server
-      Include={{ zabbix_agentd_dir }}/*.conf
+- name: Skonfiguruj plik zabbix_agentd.conf
+  ansible.builtin.template:
+    src: templates/zabbix_agentd.conf.j2
     dest: "{{ zabbix_agent_conf }}"
-    owner: zabbix
-    group: zabbix
     mode: '0644'
-  become: true
+    owner: 'root'
+    group: 'root'
+  notify: Restart Zabbix Agent
 
-# Sekcja: Konfiguracja zabbix_agentd.d
-- name: Konfiguracja zabbix_agentd.d
-  ansible.builtin.file:
-    path: "{{ zabbix_agentd_dir }}"
-    state: directory
-    mode: '0750'
-    owner: zabbix
-    group: zabbix
-  become: true
+- name: Skonfiguruj katalog zabbix_agentd.d
+  ansible.builtin.copy:
+    src: files/zabbix_agentd.d/
+    dest: "{{ zabbix_agentd_dir }}"
+    owner: 'zabbix'
+    group: 'zabbix'
+    mode: '0640'
+    force: true
+  notify: Restart Zabbix Agent
 
-# Sekcja: Konfiguracja zabbix script
-- name: Konfiguracja zabbix script
-  ansible.builtin.file:
-    path: "{{ zabbix_script_dir }}"
-    state: directory
+- name: Skonfiguruj katalog script
+  ansible.builtin.copy:
+    src: files/script/
+    dest: "{{ zabbix_script_dir }}"
+    owner: 'zabbix'
+    group: 'zabbix'
     mode: '0755'
-    owner: zabbix
-    group: zabbix
-  become: true
+    force: true
+  notify: Restart Zabbix Agent
 
-# Sekcja: Uruchomienie i weryfikacja usługi Zabbix Agent
-- name: Uruchom i włącz Zabbix Agent
-  ansible.builtin.systemd:
-    name: zabbix-agent
-    state: started
-    enabled: true
-  become: true
+- name: Skonfiguruj katalog zabbix_agentd.conf.d
+  ansible.builtin.file:
+    path: "{{ zabbix_agentd_conf_d }}"
+    state: directory
+    owner: 'zabbix'
+    group: 'zabbix'
+    mode: '0640'
+  notify: Restart Zabbix Agent
 
-- name: Sprawdź stan usługi Zabbix Agent
-  ansible.builtin.systemd:
-    name: zabbix-agent
-    state: started
-  register: zabbix_agent_status
-
-- name: Wyświetl stan usługi Zabbix Agent
-  ansible.builtin.debug:
-    var: zabbix_agent_status
+  handlers:
+    - name: Restart Zabbix Agent
+      ansible.builtin.service:
+        name: zabbix-agent
+        state: restarted
+        enabled: true
