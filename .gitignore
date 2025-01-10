@@ -400,5 +400,8 @@ FodyWeavers.xsd
 # Ignor all zip files
 *.zip
 
-# Ignor Other directory 
+# Ignore everything in the directory
 roles/oracle_instantclient/files/*
+
+# But do not ignore the directory itself
+!roles/oracle_instantclient/files/
