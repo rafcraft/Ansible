@@ -145,7 +145,5 @@ If you encounter any issues:
 2. Verify SSH access to the servers listed in your inventory.
 3. Check the Ansible version compatibility.
 
-For any further assistance, please open an issue on the repository.
-
 ---
 **Note:** Ensure you create and populate the missing directories and configuration files before running the playbook to avoid any errors during execution.
